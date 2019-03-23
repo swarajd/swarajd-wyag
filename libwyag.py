@@ -73,7 +73,7 @@ def repo_create(path):
 
 def repo_default_config():
     ret = configparser.ConfigParser()
-    
+
     ret.add_section("core")
     ret.set("core", "repositoryformatversion", "0")
     ret.set("core", "filemode", "false")
@@ -81,6 +81,50 @@ def repo_default_config():
 
     return ret
 
+def repo_find(path=".", required=True):
+    path = os.path.realpath(path)
+
+    if os.path.isdir(os.path.join(path, ".git")):
+        return GitRepository(path)
+
+    # if we haven't returned, recurse in parent
+    parent = os.path.realpath(os.path.join(path, ".."))
+
+    if (parent == path):
+        # Bottom case
+        # os.path.join("/", "..") == "/"
+        # if parent == path, then path is root
+        if required:
+            raise Exception("No git directory")
+        else:
+            return None
+
+    # recursive case
+    return repo_find(parent, required)
+
+class GitObject(object):
+    """a git object"""
+
+    repo = None
+
+    def __init__(self, repo, data=None):
+        self.repo = repo
+
+        if data != None:
+            self.deserialize(data)
+
+    def serialize(self):
+        """This function MUST be implemented by subclasses.
+        
+        It must read the object's contents from self.data, a byte string, and do
+        whatever it takes to convert it into a meaningful representation. What 
+        exactly that means depends on each subclass
+        """
+
+        raise Exception("Unimplemented!")
+
+    def deserialize(self):
+        raise Exception("Unimplemented!")
 
 class GitRepository(object):
     """a git repository"""
@@ -114,6 +158,16 @@ class GitRepository(object):
 argparser = argparse.ArgumentParser(description='the stupid content tracker')
 argsubparsers = argparser.add_subparsers(title="Commands", dest="command")
 argsubparsers.required = True
+
+argsp = argsubparsers.add_parser("init", help="Initialize a new, empty repository")
+argsp.add_argument("path",
+                   metavar="directory",
+                   nargs="?",
+                   default="."
+                   help="Where to create the repository.")
+
+def cmd_init(args):
+    repo_create(args.path)
 
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
